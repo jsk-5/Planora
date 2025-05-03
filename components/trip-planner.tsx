@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddPersonForm } from "./add-person-form";
 import { TripPreferences } from "./trip-preferences";
 import { DateRangePicker } from "./date-range-picker";
+import { healthCheck } from "@/lib/api"; 
 
 export type Person = {
   id: string;
@@ -334,7 +335,15 @@ export function TripPlanner() {
                                   : "outline"
                               }
                               size="sm"
-                              onClick={() => setSelectedRangeIndex(index)}
+                              onClick={async () => {
+                                setSelectedRangeIndex(index);
+                                try {
+                                  const result = await healthCheck();
+                                  console.log("API status:", result.status);
+                                } catch (err) {
+                                  console.error("API call failed:", err);
+                                }
+                              }}
                             >
                               <Check className="h-4 w-4 mr-1" />
                               {selectedRangeIndex === index
