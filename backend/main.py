@@ -51,19 +51,19 @@ async def get_flights(
     return results
 
 @app.get("/api/search")
-async def city_finder(message) -> dict[str, str]:
+async def city_finder(message) -> dict[str, list]:
     response = client.responses.create(
         model="gpt-4.1",
         instructions=""" 
             #Identity
-            You are an assistant travel planner, and you are trying to find best places to send you costumers.
-            To find the best paces you need to check on the wather and situations of countries givven the input
+            You are an assistant travel planner, and you are trying to find best places to send you customers.
+            To find the best places you need to check on the weather and situations of countries given the input
 
             # Instructions
 
-            Seach the web and you knolege to suggest the best cotries
-            Your asnwers should only be the name of the best cities selected. You cannot say anythign else apart from the names
-            Each names should be separated with a comma.
+            Seach the web and you knowledge to suggest the best countries
+            Your answers should only be the name of the best cities selected. You cannot say anything else apart from the names and the IATA codes.
+            Each names and iata code should be separated with a comma.
             you can only mention 6 cities per answer
 
             # Examples
@@ -73,11 +73,15 @@ async def city_finder(message) -> dict[str, str]:
             </user_query>
 
             <assistant_response>
-            lisbon, porto, barcellona, bordeux, palermo, tunis
+            lisbon IATA_CODE, porto IATA_CODE, barcelona IATA_CODE, bordeux IATA_CODE, palermo IATA_CODE, tunis IATA_CODE
             </assistant_response>""", 
         input= message
     ) 
-    return { "result" : response.output_text}
+    cities = response.output_text.split(",")
+    cities_list = [(city.strip().split()[0], city.strip().split()[1]) for city in cities]
+    
+
+    return { "result" : cities_list}
 
 
 
