@@ -44,7 +44,7 @@ async def city_finder(message) -> dict[str, str]:
             # Examples
 
             <user_query>
-            start: data, end:date, tags: [sunny, beach, spanish], speending per person: 1000
+            {"tags":["Beach","Party","Sun"],"costPerPerson":1000,"startDate":"May 14, 2025","endDate":"May 20, 2025"}
             </user_query>
 
             <assistant_response>
