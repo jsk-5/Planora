@@ -47,6 +47,8 @@ export type TripPreference = {
 
 export function TripPlanner() {
   const [tripName, setTripName] = useState("Summer Vacation");
+  const [inputValue, setInputValue] = useState('LGW');
+  const [departureAirport, setDepartureAirport] = useState('LGW');
   const [selectedRangeIndex, setSelectedRangeIndex] = useState<number | null>(
     null
   );
@@ -208,6 +210,30 @@ export function TripPlanner() {
               <CardDescription>
                 Plan your trip with friends and family
               </CardDescription>
+            </div>
+            <div>
+              <Label htmlFor="departure">Departure Airport (IATA)</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="departure"
+                  maxLength={3}
+                  className="w-24 uppercase"
+                  placeholder="LGW"
+                  value={inputValue}
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    setInputValue(value);
+                  }}
+                />
+                <Button
+                  onClick={() => {
+                    setDepartureAirport(inputValue);
+                    console.log('Departure airport set to:', inputValue);
+                  }}
+                >
+                  OK
+                </Button>
+              </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-4">
               <div>
