@@ -45,11 +45,7 @@ export function DateRangePicker({
                 format(dateRange.from, "LLL dd, y")
               )
             ) : (
-              <span>
-                Pick a
-                datefwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
-                sefsefse range
-              </span>
+              <span>Pick a date range</span>
             )}
           </Button>
         </PopoverTrigger>
