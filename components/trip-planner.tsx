@@ -140,8 +140,9 @@ export function TripPlanner() {
         endDate: format(range.end, "MMM d, yyyy"),
       };
       const response = await searchCities(searchParams);
+      
       setAiResponse(response.result);
-      console.log("Suggested cities:", response.result);
+      console.log("Suggested cities & iata code:", response.result);
     } catch (err) {
       console.error("API call failed:", err);
     }
@@ -404,12 +405,6 @@ export function TripPlanner() {
                       </div>
                     )}
                   </ScrollArea>
-                  {aiResponse && (
-                    <div className="mt-4 p-3 border rounded-md bg-gray-50">
-                      <strong>Suggested Cities:</strong>
-                      <div>{aiResponse}</div>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -432,6 +427,24 @@ export function TripPlanner() {
           </Tabs>
         </div>
       </div>
+      {aiResponse && (
+        <div className="mt-4 p-4 bg-gray-300 border rounded-md">
+          <h2 className="text-xl font-semibold mb-3">Suggested Cities</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {aiResponse.map(([city, code], index) => (
+              <div
+                key={index}
+                className="p-4 border rounded-lg shadow-sm bg-white hover:shadow-md transition"
+              >
+                <h3 className="text-lg font-semibold capitalize">{city}</h3>
+                <p className="text-gray-500">
+                  Airport: <span className="font-mono">{code}</span>
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
