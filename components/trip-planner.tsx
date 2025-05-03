@@ -96,27 +96,32 @@ export function TripPlanner() {
     }
   };
 
+  const normalizeDate = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  
   const handleDateClick = (date: Date) => {
+    const normalizedDate = normalizeDate(date);
+    console.log("Normalized date:", normalizedDate);
     const personIndex = people.findIndex((p) => p.id === selectedPerson);
     if (personIndex === -1) return;
-
+  
     const person = people[personIndex];
     const isUnavailable = person.unavailableDates.some((d) =>
-      isSameDay(d, date)
+      isSameDay(d, normalizedDate)
     );
-
+  
     const updatedPeople = [...people];
     if (isUnavailable) {
       updatedPeople[personIndex] = {
         ...person,
         unavailableDates: person.unavailableDates.filter(
-          (d) => !isSameDay(d, date)
+          (d) => !isSameDay(d, normalizedDate)
         ),
       };
     } else {
       updatedPeople[personIndex] = {
         ...person,
-        unavailableDates: [...person.unavailableDates, date],
+        unavailableDates: [...person.unavailableDates, normalizedDate],
       };
     }
     setPeople(updatedPeople);
@@ -148,53 +153,69 @@ export function TripPlanner() {
     }
   };
 
+
   const isDateUnavailable = (date: Date) => {
-    const person = people.find((p) => p.id === selectedPerson);
-    return person?.unavailableDates.some((d) => isSameDay(d, date)) || false;
+    const today = normalizeDate(date);
+    return people.some((p) =>
+      p.unavailableDates.some((d) => isSameDay(normalizeDate(d), today))
+    );
   };
 
-  const findAvailableDates = () => {
+  function findAvailableDates() {
     if (!dateRange.from || !dateRange.to) return [];
-
-    const availableDates = [];
-    const totalDays = differenceInDays(dateRange.to, dateRange.from);
-
-    for (let i = 0; i <= totalDays - tripDuration; i++) {
-      const startDate = addDays(dateRange.from, i);
-      const endDate = addDays(startDate, tripDuration - 1);
-
+  
+    // total full days inclusive of both endpoints:
+    const totalDays = differenceInDays(dateRange.to, dateRange.from) + 1;
+    const maxStartOffset = totalDays - tripDuration;
+    if (maxStartOffset < 0) return [];
+  
+    const availableDates: { start: Date; end: Date }[] = [];
+  
+    for (let offset = 0; offset <= maxStartOffset; offset++) {
+      const startDate = normalizeDate(addDays(dateRange.from, offset));
+      const endDate = normalizeDate(addDays(startDate, tripDuration - 1));
+  
+      // reset for each candidate range
       let isAvailable = true;
-
+      // LOG the window we’re checking
+      console.log(
+        `Checking window: ${format(startDate, "MMM d")} – ${format(
+          endDate,
+          "MMM d"
+        )}`
+      );
+  
+      // check every person against every day in the window
       for (const person of people) {
-        for (let j = 0; j < tripDuration; j++) {
-          const currentDate = addDays(startDate, j);
-          if (person.unavailableDates.some((d) => isSameDay(d, currentDate))) {
+        for (let day = 0; day < tripDuration; day++) {
+          const current = normalizeDate(addDays(startDate, day));
+          if (person.unavailableDates.some((d) => isSameDay(d, current))) {
+            console.log("Person is unavailable on:", current);
             isAvailable = false;
-            break;
+            break;        // stop checking this person
           }
         }
-        if (!isAvailable) break;
+        if (!isAvailable) break;  // stop checking other people
       }
-
+  
       if (isAvailable) {
-        availableDates.push({
-          start: startDate,
-          end: endDate,
-        });
+        availableDates.push({ start: startDate, end: endDate });
       }
     }
-
+  
     return availableDates;
-  };
+  }
 
   const availableDateRanges = findAvailableDates();
 
   const isDateInAvailableRange = (date: Date) => {
-    return availableDateRanges.some((range) =>
-      isWithinInterval(date, { start: range.start, end: range.end })
-    );
+    const today = normalizeDate(date);
+    return availableDateRanges.some((range) => {
+      const start = normalizeDate(range.start);
+      const end   = normalizeDate(range.end);
+      return isWithinInterval(today, { start, end });
+    });
   };
-
   return (
     <div className="max-w-7xl mx-auto">
       <Card className="mb-6">
