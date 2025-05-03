@@ -31,7 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddPersonForm } from "./add-person-form";
 import { TripPreferences } from "./trip-preferences";
 import { DateRangePicker } from "./date-range-picker";
-import { healthCheck } from "@/lib/api"; 
+import { searchCities } from "@/lib/api";
 
 export type Person = {
   id: string;
@@ -75,6 +75,7 @@ export function TripPlanner() {
     { id: "5", label: "Activity", selected: false },
     { id: "6", label: "Sights", selected: false },
   ]);
+  const [aiResponse, setAiResponse] = useState<string | null>(null);
 
   const handleAddPerson = (name: string) => {
     const newPerson = {
@@ -119,6 +120,31 @@ export function TripPlanner() {
     setPeople(updatedPeople);
   };
 
+  const handleSelect = async (index: number) => {
+    setSelectedRangeIndex(index);
+
+    const range = availableDateRanges[index];
+
+    // Get all selected preferences (tags)
+    const selectedTags = preferences
+      .filter((p) => p.selected)
+      .map((p) => p.label);
+
+    try {
+      const searchParams = {
+        tags: selectedTags,
+        costPerPerson: tripCost,
+        startDate: format(range.start, "MMM d, yyyy"),
+        endDate: format(range.end, "MMM d, yyyy"),
+      };
+      const response = await searchCities(searchParams);
+      setAiResponse(response.result);
+      console.log("Suggested cities:", response.result);
+    } catch (err) {
+      console.error("API call failed:", err);
+    }
+  };
+
   const isDateUnavailable = (date: Date) => {
     const person = people.find((p) => p.id === selectedPerson);
     return person?.unavailableDates.some((d) => isSameDay(d, date)) || false;
@@ -136,7 +162,6 @@ export function TripPlanner() {
 
       let isAvailable = true;
 
-      // Check if all people are available for the entire duration
       for (const person of people) {
         for (let j = 0; j < tripDuration; j++) {
           const currentDate = addDays(startDate, j);
@@ -335,15 +360,7 @@ export function TripPlanner() {
                                   : "outline"
                               }
                               size="sm"
-                              onClick={async () => {
-                                setSelectedRangeIndex(index);
-                                try {
-                                  const result = await healthCheck();
-                                  console.log("API status:", result.status);
-                                } catch (err) {
-                                  console.error("API call failed:", err);
-                                }
-                              }}
+                              onClick={() => handleSelect(index)}
                             >
                               <Check className="h-4 w-4 mr-1" />
                               {selectedRangeIndex === index
@@ -361,6 +378,12 @@ export function TripPlanner() {
                       </div>
                     )}
                   </ScrollArea>
+                  {aiResponse && (
+                    <div className="mt-4 p-3 border rounded-md bg-gray-50">
+                      <strong>Suggested Cities:</strong>
+                      <div>{aiResponse}</div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
