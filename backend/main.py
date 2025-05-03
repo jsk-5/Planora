@@ -1,6 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI,Query
 from fastapi.middleware.cors import CORSMiddleware
+from openai import OpenAI
+from dotenv import load_dotenv
+import os
+import json
 
+load_dotenv()
+api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=api_key)
 app = FastAPI()
 
 # Configure CORS
@@ -12,9 +19,42 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+
 @app.get("/api/health")
 async def health_check():
     return {"status": "healthy", "message": "Backend is running"}
+
+@app.get("/api/search")
+async def city_finder(message) -> dict[str, str]:
+    response = client.responses.create(
+        model="gpt-4.1",
+        instructions=""" 
+            #Identity
+            You are an assistant travel planner, and you are trying to find best places to send you costumers.
+            To find the best paces you need to check on the wather and situations of countries givven the input
+
+            # Instructions
+
+            Seach the web and you knolege to suggest the best cotries
+            Your asnwers should only be the name of the best cities selected. You cannot say anythign else apart from the names
+            Each names should be separated with a comma.
+            you can only mention 6 cities per answer
+
+            # Examples
+
+            <user_query>
+            start: data, end:date, tags: [sunny, beach, spanish], speending per person: 1000
+            </user_query>
+
+            <assistant_response>
+            lisbon, porto, barcellona, bordeux, palermo, tunis
+            </assistant_response>""", 
+        input= message
+    ) 
+    return { "result" : response.output_text}
+
+
 
 if __name__ == "__main__":
     import uvicorn
