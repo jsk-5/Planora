@@ -1,9 +1,21 @@
-import { TripPlanner } from "@/components/trip-planner"
+import { Navbar } from "@/components/navbar";
+import { TripPlanner } from "@/components/trip-planner";
+import { getServerSession } from "next-auth/next";
+import { redirect } from "next/navigation";
 
-export default function Home() {
+export default async function Home() {
+  const session = await getServerSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
   return (
-    <main className="min-h-screen p-4 md:p-8">
-      <TripPlanner />
-    </main>
-  )
+    <>
+      <Navbar />
+      <main className="min-h-screen p-4 md:p-8">
+        <TripPlanner />
+      </main>
+    </>
+  );
 }
