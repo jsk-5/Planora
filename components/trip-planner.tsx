@@ -1,52 +1,71 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { format, addDays, isSameDay, isWithinInterval, differenceInDays } from "date-fns"
-import { Calendar } from "@/components/ui/calendar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Plus, X, Check } from "lucide-react"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AddPersonForm } from "./add-person-form"
-import { TripPreferences } from "./trip-preferences"
-import { DateRangePicker } from "./date-range-picker"
+import { useState } from "react";
+import {
+  format,
+  addDays,
+  isSameDay,
+  isWithinInterval,
+  differenceInDays,
+} from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Plus, X, Check } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AddPersonForm } from "./add-person-form";
+import { TripPreferences } from "./trip-preferences";
+import { DateRangePicker } from "./date-range-picker";
 
 export type Person = {
-  id: string
-  name: string
-  unavailableDates: Date[]
-}
+  id: string;
+  name: string;
+  unavailableDates: Date[];
+};
 
 export type TripPreference = {
-  id: string
-  label: string
-  selected: boolean
-}
+  id: string;
+  label: string;
+  selected: boolean;
+};
 
 export function TripPlanner() {
-  const [tripName, setTripName] = useState("Summer Vacation")
-  const [tripDuration, setTripDuration] = useState(7)
-  const [tripCost, setTripCost] = useState(1000)
+  const [tripName, setTripName] = useState("Summer Vacation");
+  const [selectedRangeIndex, setSelectedRangeIndex] = useState<number | null>(
+    null
+  );
+  const [tripDuration, setTripDuration] = useState(7);
+  const [tripCost, setTripCost] = useState(1000);
   const [dateRange, setDateRange] = useState<{
-    from: Date
-    to: Date
+    from: Date;
+    to: Date;
   }>({
     from: new Date(),
     to: addDays(new Date(), 60),
-  })
+  });
   const [people, setPeople] = useState<Person[]>([
     {
       id: "1",
       name: "You",
       unavailableDates: [],
     },
-  ])
-  const [selectedPerson, setSelectedPerson] = useState<string>("1")
+  ]);
+  const [selectedPerson, setSelectedPerson] = useState<string>("1");
   const [preferences, setPreferences] = useState<TripPreference[]>([
     { id: "1", label: "Beach", selected: false },
     { id: "2", label: "City", selected: false },
@@ -54,92 +73,98 @@ export function TripPlanner() {
     { id: "4", label: "Sun", selected: false },
     { id: "5", label: "Activity", selected: false },
     { id: "6", label: "Sights", selected: false },
-  ])
+  ]);
 
   const handleAddPerson = (name: string) => {
     const newPerson = {
       id: Date.now().toString(),
       name,
       unavailableDates: [],
-    }
-    setPeople([...people, newPerson])
-    setSelectedPerson(newPerson.id)
-  }
+    };
+    setPeople([...people, newPerson]);
+    setSelectedPerson(newPerson.id);
+  };
 
   const handleRemovePerson = (id: string) => {
-    setPeople(people.filter((person) => person.id !== id))
+    setPeople(people.filter((person) => person.id !== id));
     if (selectedPerson === id) {
-      setSelectedPerson(people[0].id)
+      setSelectedPerson(people[0].id);
     }
-  }
+  };
 
   const handleDateClick = (date: Date) => {
-    const personIndex = people.findIndex((p) => p.id === selectedPerson)
-    if (personIndex === -1) return
+    const personIndex = people.findIndex((p) => p.id === selectedPerson);
+    if (personIndex === -1) return;
 
-    const person = people[personIndex]
-    const isUnavailable = person.unavailableDates.some((d) => isSameDay(d, date))
+    const person = people[personIndex];
+    const isUnavailable = person.unavailableDates.some((d) =>
+      isSameDay(d, date)
+    );
 
-    const updatedPeople = [...people]
+    const updatedPeople = [...people];
     if (isUnavailable) {
       updatedPeople[personIndex] = {
         ...person,
-        unavailableDates: person.unavailableDates.filter((d) => !isSameDay(d, date)),
-      }
+        unavailableDates: person.unavailableDates.filter(
+          (d) => !isSameDay(d, date)
+        ),
+      };
     } else {
       updatedPeople[personIndex] = {
         ...person,
         unavailableDates: [...person.unavailableDates, date],
-      }
+      };
     }
-    setPeople(updatedPeople)
-  }
+    setPeople(updatedPeople);
+  };
 
   const isDateUnavailable = (date: Date) => {
-    const person = people.find((p) => p.id === selectedPerson)
-    return person?.unavailableDates.some((d) => isSameDay(d, date)) || false
-  }
+    const person = people.find((p) => p.id === selectedPerson);
+    return person?.unavailableDates.some((d) => isSameDay(d, date)) || false;
+  };
 
   const findAvailableDates = () => {
-    if (!dateRange.from || !dateRange.to) return []
+    if (!dateRange.from || !dateRange.to) return [];
 
-    const availableDates = []
-    const totalDays = differenceInDays(dateRange.to, dateRange.from)
+    const availableDates = [];
+    const totalDays = differenceInDays(dateRange.to, dateRange.from);
 
     for (let i = 0; i <= totalDays - tripDuration; i++) {
-      const startDate = addDays(dateRange.from, i)
-      const endDate = addDays(startDate, tripDuration - 1)
+      const startDate = addDays(dateRange.from, i);
+      const endDate = addDays(startDate, tripDuration - 1);
 
-      let isAvailable = true
+      let isAvailable = true;
 
       // Check if all people are available for the entire duration
       for (const person of people) {
         for (let j = 0; j < tripDuration; j++) {
-          const currentDate = addDays(startDate, j)
+          const currentDate = addDays(startDate, j);
           if (person.unavailableDates.some((d) => isSameDay(d, currentDate))) {
-            isAvailable = false
-            break
+            isAvailable = false;
+            break;
           }
         }
-        if (!isAvailable) break
+        if (!isAvailable) break;
       }
 
       if (isAvailable) {
         availableDates.push({
           start: startDate,
           end: endDate,
-        })
+        });
       }
     }
 
-    return availableDates
-  }
+    return availableDates;
+  };
 
-  const availableDateRanges = findAvailableDates()
+  const availableDateRanges = findAvailableDates();
 
   const isDateInAvailableRange = (date: Date) => {
-    return availableDateRanges.some((range) => isWithinInterval(date, { start: range.start, end: range.end }))
-  }
+    return availableDateRanges.some((range) =>
+      isWithinInterval(date, { start: range.start, end: range.end })
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -154,7 +179,9 @@ export function TripPlanner() {
                   className="text-2xl font-bold border-none p-0 h-auto focus-visible:ring-0"
                 />
               </CardTitle>
-              <CardDescription>Plan your trip with friends and family</CardDescription>
+              <CardDescription>
+                Plan your trip with friends and family
+              </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row gap-4">
               <div>
@@ -164,7 +191,9 @@ export function TripPlanner() {
                   type="number"
                   min={1}
                   value={tripDuration}
-                  onChange={(e) => setTripDuration(Number.parseInt(e.target.value) || 1)}
+                  onChange={(e) =>
+                    setTripDuration(Number.parseInt(e.target.value) || 1)
+                  }
                   className="w-24"
                 />
               </div>
@@ -175,7 +204,9 @@ export function TripPlanner() {
                   type="number"
                   min={0}
                   value={tripCost}
-                  onChange={(e) => setTripCost(Number.parseInt(e.target.value) || 0)}
+                  onChange={(e) =>
+                    setTripCost(Number.parseInt(e.target.value) || 0)
+                  }
                   className="w-24"
                 />
               </div>
@@ -189,15 +220,22 @@ export function TripPlanner() {
           <Card>
             <CardHeader>
               <CardTitle>Trip Calendar</CardTitle>
-              <CardDescription>Select a date range for your trip and mark your unavailable days</CardDescription>
-              <DateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
+              <CardDescription>
+                Select a date range for your trip and mark your unavailable days
+              </CardDescription>
+              <DateRangePicker
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+              />
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2 mb-4">
                 {people.map((person) => (
                   <Badge
                     key={person.id}
-                    variant={selectedPerson === person.id ? "default" : "outline"}
+                    variant={
+                      selectedPerson === person.id ? "default" : "outline"
+                    }
                     className="cursor-pointer flex items-center gap-1"
                     onClick={() => setSelectedPerson(person.id)}
                   >
@@ -206,8 +244,8 @@ export function TripPlanner() {
                       <X
                         className="h-3 w-3 ml-1"
                         onClick={(e) => {
-                          e.stopPropagation()
-                          handleRemovePerson(person.id)
+                          e.stopPropagation();
+                          handleRemovePerson(person.id);
                         }}
                       />
                     )}
@@ -240,7 +278,9 @@ export function TripPlanner() {
               <Calendar
                 mode="single"
                 onSelect={handleDateClick}
-                disabled={(date) => date < dateRange.from || date > dateRange.to}
+                disabled={(date) =>
+                  date < dateRange.from || date > dateRange.to
+                }
                 modifiers={{
                   unavailable: (date) => isDateUnavailable(date),
                   available: (date) => isDateInAvailableRange(date),
@@ -265,23 +305,41 @@ export function TripPlanner() {
               <Card>
                 <CardHeader>
                   <CardTitle>Available Dates</CardTitle>
-                  <CardDescription>Dates when everyone is available for {tripDuration} days</CardDescription>
+                  <CardDescription>
+                    Dates when everyone is available for {tripDuration} days
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ScrollArea className="h-[400px]">
                     {availableDateRanges.length > 0 ? (
                       <div className="space-y-2">
                         {availableDateRanges.map((range, index) => (
-                          <div key={index} className="p-3 border rounded-md flex items-center justify-between">
+                          <div
+                            key={index}
+                            className="p-3 border rounded-md flex items-center justify-between"
+                          >
                             <div>
                               <div className="font-medium">
-                                {format(range.start, "MMM d, yyyy")} - {format(range.end, "MMM d, yyyy")}
+                                {format(range.start, "MMM d, yyyy")} -{" "}
+                                {format(range.end, "MMM d, yyyy")}
                               </div>
-                              <div className="text-sm text-muted-foreground">{tripDuration} days</div>
+                              <div className="text-sm text-muted-foreground">
+                                {tripDuration} days
+                              </div>
                             </div>
-                            <Button variant="outline" size="sm">
+                            <Button
+                              variant={
+                                selectedRangeIndex === index
+                                  ? "default"
+                                  : "outline"
+                              }
+                              size="sm"
+                              onClick={() => setSelectedRangeIndex(index)}
+                            >
                               <Check className="h-4 w-4 mr-1" />
-                              Select
+                              {selectedRangeIndex === index
+                                ? "Selected"
+                                : "Select"}
                             </Button>
                           </div>
                         ))}
@@ -301,10 +359,15 @@ export function TripPlanner() {
               <Card>
                 <CardHeader>
                   <CardTitle>Trip Preferences</CardTitle>
-                  <CardDescription>What are you looking for in this trip?</CardDescription>
+                  <CardDescription>
+                    What are you looking for in this trip?
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <TripPreferences preferences={preferences} setPreferences={setPreferences} />
+                  <TripPreferences
+                    preferences={preferences}
+                    setPreferences={setPreferences}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -312,5 +375,5 @@ export function TripPlanner() {
         </div>
       </div>
     </div>
-  )
+  );
 }
