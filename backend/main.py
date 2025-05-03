@@ -1,9 +1,12 @@
+
 from fastapi import FastAPI,Query
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from dotenv import load_dotenv
+import serpapi
 import os
 import json
+
 
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
@@ -24,6 +27,28 @@ app.add_middleware(
 @app.get("/api/health")
 async def health_check():
     return {"status": "healthy", "message": "Backend is running"}
+
+
+
+
+@app.get("/api/flights")
+async def get_flights(
+    departure_id: str = Query(..., description="Departure airport code"),
+    arrival_id: str = Query(..., description="Arrival airport code")
+):
+    params = {
+        "engine": "google_flights",
+        "hl": "en",
+        "gl": "uk",
+        "departure_id": departure_id,
+        "arrival_id": arrival_id,
+        "outbound_date": "2025-05-04",
+        "return_date": "2025-05-10",
+        "currency": "GBP",
+    }
+    client = serpapi.Client(api_key=os.getenv("SERPAPI_API_KEY"))
+    results = client.search(params)
+    return results
 
 @app.get("/api/search")
 async def city_finder(message) -> dict[str, str]:
