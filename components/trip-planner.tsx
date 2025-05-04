@@ -1,5 +1,5 @@
 "use client";
-
+import { searchCities } from "@/lib/api";
 import { useEffect, useState } from "react";
 import {
   format,
@@ -86,9 +86,9 @@ export type TripPreference = {
 export function TripPlanner() {
   const [tripName, setTripName] = useState("Summer Vacation");
 
-  const [inputValue, setInputValue] = useState('LGW');
-  const [departureAirport, setDepartureAirport] = useState('LGW');
-  
+  const [inputValue, setInputValue] = useState("LGW");
+  const [departureAirport, setDepartureAirport] = useState("LGW");
+
   // Load trip from share link
   const params = useSearchParams();
   const { data: session } = useSession();
@@ -152,10 +152,12 @@ export function TripPlanner() {
         const p = data.payload;
         // parse ISO strings back into Date
         p.dateRange.from = new Date(p.dateRange.from);
-        p.dateRange.to   = new Date(p.dateRange.to);
+        p.dateRange.to = new Date(p.dateRange.to);
         p.people = p.people.map((person: any) => ({
           ...person,
-          unavailableDates: person.unavailableDates.map((s: string) => new Date(s)),
+          unavailableDates: person.unavailableDates.map(
+            (s: string) => new Date(s)
+          ),
         }));
 
         // hydrate state
@@ -177,31 +179,34 @@ export function TripPlanner() {
       alert("You must be signed in to share a trip.");
       return;
     }
-  
+
     const userId = session.user?.id;
     const shareId = nanoid(8);
-  
+
     const payload = {
       dateRange,
       tripDuration,
       tripCost,
       departureAirport: inputValue,
-      people: people.map(p => ({
+      people: people.map((p) => ({
         ...p,
-        unavailableDates: p.unavailableDates.map(d => d.toISOString()),
+        unavailableDates: p.unavailableDates.map((d) => d.toISOString()),
       })),
       preferences,
     };
-  
+
     const { error } = await supabase
       .from("trips")
-      .upsert({ share_id: shareId, user_id: userId, payload }, { onConflict: "share_id" });
-  
+      .upsert(
+        { share_id: shareId, user_id: userId, payload },
+        { onConflict: "share_id" }
+      );
+
     if (error) {
       console.error("Error saving trip:", error);
       return;
     }
-  
+
     const url = `${window.location.origin}/trip-planner?share=${shareId}`;
     navigator.clipboard.writeText(url);
     alert("Shareable link copied!");
