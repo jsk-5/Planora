@@ -1,30 +1,37 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
-import { useState } from "react"
+import { Badge } from "../components/ui/badge";
+import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
+import { Plus } from "lucide-react";
+import { useState } from "react";
 
 interface TripPreference {
-  id: string
-  label: string
-  selected: boolean
+  id: string;
+  label: string;
+  selected: boolean;
 }
 
 interface TripPreferencesProps {
-  preferences: TripPreference[]
-  setPreferences: React.Dispatch<React.SetStateAction<TripPreference[]>>
+  preferences: TripPreference[];
+  setPreferences: React.Dispatch<React.SetStateAction<TripPreference[]>>;
 }
 
-export function TripPreferences({ preferences, setPreferences }: TripPreferencesProps) {
-  const [newPreference, setNewPreference] = useState("")
+export function TripPreferences({
+  preferences,
+  setPreferences,
+}: TripPreferencesProps) {
+  const [newPreference, setNewPreference] = useState("");
 
   const togglePreference = (id: string) => {
-    setPreferences(preferences.map((pref) => (pref.id === id ? { ...pref, selected: !pref.selected } : pref)))
-  }
+    setPreferences(
+      preferences.map((pref) =>
+        pref.id === id ? { ...pref, selected: !pref.selected } : pref
+      )
+    );
+  };
 
   const addPreference = () => {
     if (newPreference.trim()) {
@@ -35,10 +42,10 @@ export function TripPreferences({ preferences, setPreferences }: TripPreferences
           label: newPreference.trim(),
           selected: true,
         },
-      ])
-      setNewPreference("")
+      ]);
+      setNewPreference("");
     }
-  }
+  };
 
   return (
     <div className="space-y-4">
@@ -62,8 +69,8 @@ export function TripPreferences({ preferences, setPreferences }: TripPreferences
           onChange={(e) => setNewPreference(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
-              e.preventDefault()
-              addPreference()
+              e.preventDefault();
+              addPreference();
             }
           }}
         />
@@ -84,5 +91,5 @@ export function TripPreferences({ preferences, setPreferences }: TripPreferences
         </div>
       </div>
     </div>
-  )
+  );
 }
