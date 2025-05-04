@@ -1,6 +1,8 @@
 "use client";
-import { searchCities } from "@/lib/api";
-import { useEffect, useState } from "react";
+
+import { searchCities } from "../lib/api";
+import { useEffect, useState, Suspense } from "react";
+
 import {
   format,
   addDays,
@@ -8,34 +10,41 @@ import {
   isWithinInterval,
   differenceInDays,
 } from "date-fns";
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar } from "../components/ui/calendar";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+} from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
 import { Plus, X, Check } from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "../components/ui/popover";
+import { ScrollArea } from "../components/ui/scroll-area";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
 import { AddPersonForm } from "./add-person-form";
 import { TripPreferences } from "./trip-preferences";
 import { DateRangePicker } from "./date-range-picker";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "../lib/supabaseClient";
 import { nanoid } from "nanoid";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { type DateRange } from "react-day-picker";
+import { PersonPayload } from "@/types/person-payload";
+
 
 // Define types for flight data
 interface FlightInfo {
@@ -100,15 +109,12 @@ export function TripPlanner() {
   );
   const [tripDuration, setTripDuration] = useState(7);
   const [tripCost, setTripCost] = useState(1000);
-  const [dateRange, setDateRange] = useState<{
-    from: Date;
-    to: Date;
-  }>({
+
+  const [dateRange, setDateRange] = useState<DateRange>({
     from: new Date(),
     to: addDays(new Date(), 60),
   });
-  const [people, setPeople] = useState<Person[]>([
-  ]);
+  const [people, setPeople] = useState<Person[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<string>("1");
   const [preferences, setPreferences] = useState<TripPreference[]>([
     { id: "1", label: "Beach", selected: false },
@@ -148,7 +154,7 @@ export function TripPlanner() {
         // parse ISO strings back into Date
         p.dateRange.from = new Date(p.dateRange.from);
         p.dateRange.to = new Date(p.dateRange.to);
-        p.people = p.people.map((person: any) => ({
+        p.people = p.people.map((person: PersonPayload) => ({
           ...person,
           unavailableDates: person.unavailableDates.map(
             (s: string) => new Date(s)
@@ -174,40 +180,40 @@ export function TripPlanner() {
     if (!shareId) return;
 
     console.log("Setting up realtime subscription for trip:", shareId);
-    
+
     // Create a subscription channel
     const channel = supabase
       .channel(`public:trips:share_id=eq.${shareId}`)
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'trips',
-          filter: `share_id=eq.${shareId}`
+          event: "UPDATE",
+          schema: "public",
+          table: "trips",
+          filter: `share_id=eq.${shareId}`,
         },
         (payload) => {
-          console.log('Real-time update received:', payload);
-          
+          console.log("Real-time update received:", payload);
+
           // Extract the updated payload data
           const updatedData = payload.new.payload;
-          
+
           if (!updatedData) return;
-          
+
           // Parse ISO strings back into Date objects
           updatedData.dateRange.from = new Date(updatedData.dateRange.from);
           updatedData.dateRange.to = new Date(updatedData.dateRange.to);
-          
+
           // Process people data to convert string dates to Date objects
-          const updatedPeople = updatedData.people.map((person: any) => ({
+          const updatedPeople = updatedData.people.map((person: PersonPayload) => ({
             ...person,
             unavailableDates: person.unavailableDates.map(
               (s: string) => new Date(s)
             ),
           }));
-          
+
           console.log("Updating local state with new data:", updatedData);
-          
+
           // Update all the relevant state
           if (updatedData.tripName) setTripName(updatedData.tripName);
           setDateRange(updatedData.dateRange);
@@ -220,7 +226,7 @@ export function TripPlanner() {
         }
       )
       .subscribe();
-    
+
     // Clean up the subscription when the component unmounts
     return () => {
       console.log("Cleaning up realtime subscription");
@@ -263,7 +269,7 @@ export function TripPlanner() {
     }
 
     const url = `${window.location.origin}/trip-planner?share=${tripShareId}`;
-    
+
     // Only redirect if this is a new trip (not editing an existing one)
     if (!shareId) {
       navigator.clipboard.writeText(url);
@@ -286,17 +292,9 @@ export function TripPlanner() {
   const normalizeDate = (d: Date) =>
     new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-  const handleDateRangeChange = (range: DateRange) => {
-    if (range.from && range.to) {
-      setDateRange({ from: range.from, to: range.to });
-    } else if (range.from) {
-      // If only the start date is selected, update just the from date
-      // while preserving the existing to date
-      setDateRange((prev) => ({ ...prev, from: range.from }));
-    } else if (range.to) {
-      // If only the end date is selected, update just the to date
-      // while preserving the existing from date
-      setDateRange((prev) => ({ ...prev, to: range.to }));
+  const handleDateRangePickerChange = (range: DateRange | undefined) => {
+    if (range) {
+      setDateRange(range);
     }
   };
 
@@ -502,7 +500,7 @@ export function TripPlanner() {
               </CardDescription>
               <DateRangePicker
                 dateRange={dateRange}
-                onDateRangeChange={setDateRange}
+                onDateRangeChange={handleDateRangePickerChange}
               />
             </CardHeader>
             <CardContent>
@@ -801,5 +799,19 @@ export function TripPlanner() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+// This component will use useSearchParams
+function TripPlannerWithSearchParams() {
+  return <TripPlanner />;
+}
+
+// Modify your export to use Suspense
+export function TripPlannerWrapper() {
+  return (
+    <Suspense fallback={<div>Loading trip...</div>}>
+      <TripPlannerWithSearchParams />
+    </Suspense>
   );
 }
