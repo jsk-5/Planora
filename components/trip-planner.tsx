@@ -35,6 +35,7 @@ import { searchCities } from "@/lib/api";
 import { supabase } from "@/lib/supabaseClient";
 import { nanoid } from "nanoid";
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 export type Person = {
   id: string;
@@ -55,6 +56,7 @@ export function TripPlanner() {
   
   // Load trip from share link
   const params = useSearchParams();
+  const { data: session } = useSession();
   const shareId = params.get("share");
   const [initialized, setInitialized] = useState(false);
   //
@@ -137,7 +139,14 @@ export function TripPlanner() {
   }, [shareId, initialized]);
 
   async function handleShare() {
-    const shareId = nanoid(8); // short, URL‑safe ID
+    if (!session) {
+      alert("You must be signed in to share a trip.");
+      return;
+    }
+  
+    const userId = session.user?.id;
+    const shareId = nanoid(8);
+  
     const payload = {
       dateRange,
       tripDuration,
@@ -150,10 +159,9 @@ export function TripPlanner() {
       preferences,
     };
   
-    // insert or update
     const { error } = await supabase
       .from("trips")
-      .upsert({ share_id: shareId, payload }, { onConflict: "share_id" });
+      .upsert({ share_id: shareId, user_id: userId, payload }, { onConflict: "share_id" });
   
     if (error) {
       console.error("Error saving trip:", error);
