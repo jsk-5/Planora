@@ -9,14 +9,9 @@ declare global {
   }
 }
 
-// Determine the base URL with fallbacks
+// Determine the base URL based on the environment
 const getBaseUrl = () => {
-  // First priority: Environment variable (set in Vercel)
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
-  }
-  
-  // Second priority: Check browser location for development and Vercel environments
+  // Browser-only check for environment
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
     
@@ -33,7 +28,7 @@ const getBaseUrl = () => {
     }
   }
   
-  // Fallback for production
+  // Server-side rendering or fallback for production
   return "https://planora-backend.vercel.app/api";
 };
 
@@ -93,7 +88,7 @@ interface CityData {
   return_flight_info: FlightInfo | null;
 }
 
-interface ApiResponse {
+export interface ApiResponse {
   cities: CityData[];
 }
 
@@ -102,7 +97,7 @@ export const searchCities = async (
 ): Promise<ApiResponse> => {
   try {
     const message = encodeURIComponent(JSON.stringify(params));
-    const response = await api.get(`/search?message=${message}`);
+    const response = await api.get<ApiResponse>(`/search?message=${message}`);
     return response.data;
   } catch (error) {
     console.log(params);
