@@ -1,8 +1,10 @@
 "use client";
 
-import { Navbar } from "@/components/navbar";
-import { TripPlannerWrapper } from "@/components/trip-planner";
+
+import { Navbar } from "../../components/navbar";
+import { TripPlannerWrapper } from "../../components/trip-planner";
 // import { useSearchParams } from "next/navigation";
+
 
 export default function TripPlannerPage() {
 //   const searchParams = useSearchParams();
