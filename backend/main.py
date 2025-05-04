@@ -16,11 +16,21 @@ app = FastAPI()
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_origins=[
+        "http://localhost:3000",  # Local development
+        "https://planora.vercel.app",  # Production frontend
+        "https://planora-git-main.vercel.app",  # Vercel preview deployments
+        "https://planora-*.vercel.app"  # Vercel branch deployments
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Root route for Vercel
+@app.get("/")
+async def root():
+    return {"message": "Welcome to Planora API"}
 
 def get_cheapest_flight(flight_data) -> dict:
     """
