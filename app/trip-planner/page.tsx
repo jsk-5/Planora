@@ -1,14 +1,12 @@
+"use client";
+
 import { Navbar } from "@/components/navbar";
 import { TripPlanner } from "@/components/trip-planner";
-import { getServerSession } from "next-auth/next";
-import { redirect } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
-export default async function Home() {
-  const session = await getServerSession();
-
-  if (!session) {
-    redirect("/login");
-  }
+export default function TripPlannerPage() {
+  const searchParams = useSearchParams();
+  const shareId = searchParams.get("share");
 
   return (
     <>
@@ -18,4 +16,4 @@ export default async function Home() {
       </main>
     </>
   );
-}
+} 

@@ -1,6 +1,6 @@
 "use client";
-
-import { useState } from "react";
+import { searchCities } from "@/lib/api";
+import { useEffect, useState } from "react";
 import {
   format,
   addDays,
@@ -31,8 +31,46 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddPersonForm } from "./add-person-form";
 import { TripPreferences } from "./trip-preferences";
 import { DateRangePicker } from "./date-range-picker";
-import { healthCheck } from "@/lib/api"; 
+import { supabase } from "@/lib/supabaseClient";
+import { nanoid } from "nanoid";
+import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { type DateRange } from "react-day-picker";
 
+// Define types for flight data
+interface FlightInfo {
+  type: string;
+  airline: string;
+  airline_logo?: string;
+  price: number;
+  departure: {
+    airport: string;
+    time: string;
+    iata_code: string;
+  };
+  arrival: {
+    airport: string;
+    time: string;
+    iata_code: string;
+  };
+  duration_minutes: number;
+  duration_formatted: string;
+  flight_number: string;
+  aircraft: string;
+  departure_token: string;
+  carbon_emissions_kg: number;
+}
+
+interface CityData {
+  city_name: string;
+  city_iata: string;
+  flight_info: FlightInfo | null;
+  return_flight_info: FlightInfo | null;
+}
+
+interface ApiResponse {
+  cities: CityData[];
+}
 export type Person = {
   id: string;
   name: string;
@@ -47,6 +85,16 @@ export type TripPreference = {
 
 export function TripPlanner() {
   const [tripName, setTripName] = useState("Summer Vacation");
+
+  const [inputValue, setInputValue] = useState("LGW");
+  const [departureAirport, setDepartureAirport] = useState("LGW");
+
+  // Load trip from share link
+  const params = useSearchParams();
+  const { data: session } = useSession();
+  const shareId = params.get("share");
+  const [initialized, setInitialized] = useState(false);
+  //
   const [selectedRangeIndex, setSelectedRangeIndex] = useState<number | null>(
     null
   );
@@ -60,11 +108,6 @@ export function TripPlanner() {
     to: addDays(new Date(), 60),
   });
   const [people, setPeople] = useState<Person[]>([
-    {
-      id: "1",
-      name: "You",
-      unavailableDates: [],
-    },
   ]);
   const [selectedPerson, setSelectedPerson] = useState<string>("1");
   const [preferences, setPreferences] = useState<TripPreference[]>([
@@ -75,6 +118,7 @@ export function TripPlanner() {
     { id: "5", label: "Activity", selected: false },
     { id: "6", label: "Sights", selected: false },
   ]);
+  const [aiResponse, setAiResponse] = useState<ApiResponse | null>(null);
 
   const handleAddPerson = (name: string) => {
     const newPerson = {
@@ -86,6 +130,83 @@ export function TripPlanner() {
     setSelectedPerson(newPerson.id);
   };
 
+  useEffect(() => {
+    if (!shareId || initialized) return;
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("trips")
+        .select("payload")
+        .eq("share_id", shareId)
+        .single();
+
+      if (error || !data) {
+        console.warn("No shared trip found:", error);
+      } else {
+        console.log("Shared trip found:", data);
+        const p = data.payload;
+        // parse ISO strings back into Date
+        p.dateRange.from = new Date(p.dateRange.from);
+        p.dateRange.to = new Date(p.dateRange.to);
+        p.people = p.people.map((person: any) => ({
+          ...person,
+          unavailableDates: person.unavailableDates.map(
+            (s: string) => new Date(s)
+          ),
+        }));
+
+        // hydrate state
+        setDateRange(p.dateRange);
+        setTripDuration(p.tripDuration);
+        setTripCost(p.tripCost);
+        setInputValue(p.departureAirport);
+        setDepartureAirport(p.departureAirport);
+        setPeople(p.people);
+        setPreferences(p.preferences);
+      }
+
+      setInitialized(true);
+    })();
+  }, [shareId, initialized]);
+
+  async function handleSave() {
+    if (!session) {
+      alert("You must be signed in to save a trip.");
+      return;
+    }
+
+    const userId = session.user?.id;
+    const shareId = nanoid(8);
+
+    const payload = {
+      dateRange,
+      tripDuration,
+      tripCost,
+      departureAirport: inputValue,
+      people: people.map((p) => ({
+        ...p,
+        unavailableDates: p.unavailableDates.map((d) => d.toISOString()),
+      })),
+      preferences,
+    };
+
+    const { error } = await supabase
+      .from("trips")
+      .upsert(
+        { share_id: shareId, user_id: userId, payload },
+        { onConflict: "share_id" }
+      );
+
+    if (error) {
+      console.error("Error saving trip:", error);
+      return;
+    }
+
+    const url = `${window.location.origin}/trip-planner?share=${shareId}`;
+    navigator.clipboard.writeText(url);
+    alert("Shareable link copied!");
+  }
+
   const handleRemovePerson = (id: string) => {
     setPeople(people.filter((person) => person.id !== id));
     if (selectedPerson === id) {
@@ -93,13 +214,26 @@ export function TripPlanner() {
     }
   };
 
-  const handleDateClick = (date: Date) => {
+  const normalizeDate = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const handleDateRangeChange = (range: DateRange) => {
+    if (range.from && range.to) {
+      setDateRange({ from: range.from, to: range.to });
+    }
+  };
+
+  const handleDateClick = (date: Date | undefined) => {
+    if (!date) return;
+
+    const normalizedDate = normalizeDate(date);
+    console.log("Normalized date:", normalizedDate);
     const personIndex = people.findIndex((p) => p.id === selectedPerson);
     if (personIndex === -1) return;
 
     const person = people[personIndex];
     const isUnavailable = person.unavailableDates.some((d) =>
-      isSameDay(d, date)
+      isSameDay(d, normalizedDate)
     );
 
     const updatedPeople = [...people];
@@ -107,66 +241,100 @@ export function TripPlanner() {
       updatedPeople[personIndex] = {
         ...person,
         unavailableDates: person.unavailableDates.filter(
-          (d) => !isSameDay(d, date)
+          (d) => !isSameDay(d, normalizedDate)
         ),
       };
     } else {
       updatedPeople[personIndex] = {
         ...person,
-        unavailableDates: [...person.unavailableDates, date],
+        unavailableDates: [...person.unavailableDates, normalizedDate],
       };
     }
     setPeople(updatedPeople);
   };
 
-  const isDateUnavailable = (date: Date) => {
-    const person = people.find((p) => p.id === selectedPerson);
-    return person?.unavailableDates.some((d) => isSameDay(d, date)) || false;
+  const handleSelect = async (index: number) => {
+    setSelectedRangeIndex(index);
+
+    const range = availableDateRanges[index];
+
+    // Get all selected preferences (tags)
+    const selectedTags = preferences
+      .filter((p) => p.selected)
+      .map((p) => p.label);
+
+    try {
+      const searchParams = {
+        tags: selectedTags,
+        costPerPerson: tripCost,
+        startDate: format(range.start, "yyyy-MM-dd"),
+        endDate: format(range.end, "yyyy-MM-dd"),
+        departureAirport: departureAirport,
+      };
+      console.log("Sending search params:", searchParams);
+      const response = await searchCities(searchParams);
+      console.log("Raw API response:", JSON.stringify(response, null, 2));
+      setAiResponse(response);
+    } catch (err) {
+      console.error("API call failed:", err);
+    }
   };
 
-  const findAvailableDates = () => {
+  const isDateUnavailable = (date: Date) => {
+    const today = normalizeDate(date);
+    return people.some((p) =>
+      p.unavailableDates.some((d) => isSameDay(normalizeDate(d), today))
+    );
+  };
+
+  function findAvailableDates() {
     if (!dateRange.from || !dateRange.to) return [];
 
-    const availableDates = [];
-    const totalDays = differenceInDays(dateRange.to, dateRange.from);
+    // total full days inclusive of both endpoints:
+    const totalDays = differenceInDays(dateRange.to, dateRange.from) + 1;
+    const maxStartOffset = totalDays - tripDuration;
+    if (maxStartOffset < 0) return [];
 
-    for (let i = 0; i <= totalDays - tripDuration; i++) {
-      const startDate = addDays(dateRange.from, i);
-      const endDate = addDays(startDate, tripDuration - 1);
+    const availableDates: { start: Date; end: Date }[] = [];
 
+    for (let offset = 0; offset <= maxStartOffset; offset++) {
+      const startDate = normalizeDate(addDays(dateRange.from, offset));
+      const endDate = normalizeDate(addDays(startDate, tripDuration - 1));
+
+      // reset for each candidate range
       let isAvailable = true;
 
-      // Check if all people are available for the entire duration
+      // check every person against every day in the window
       for (const person of people) {
-        for (let j = 0; j < tripDuration; j++) {
-          const currentDate = addDays(startDate, j);
-          if (person.unavailableDates.some((d) => isSameDay(d, currentDate))) {
+        for (let day = 0; day < tripDuration; day++) {
+          const current = normalizeDate(addDays(startDate, day));
+          if (person.unavailableDates.some((d) => isSameDay(d, current))) {
+            console.log("Person is unavailable on:", current);
             isAvailable = false;
-            break;
+            break; // stop checking this person
           }
         }
-        if (!isAvailable) break;
+        if (!isAvailable) break; // stop checking other people
       }
 
       if (isAvailable) {
-        availableDates.push({
-          start: startDate,
-          end: endDate,
-        });
+        availableDates.push({ start: startDate, end: endDate });
       }
     }
 
     return availableDates;
-  };
+  }
 
   const availableDateRanges = findAvailableDates();
 
   const isDateInAvailableRange = (date: Date) => {
-    return availableDateRanges.some((range) =>
-      isWithinInterval(date, { start: range.start, end: range.end })
-    );
+    const today = normalizeDate(date);
+    return availableDateRanges.some((range) => {
+      const start = normalizeDate(range.start);
+      const end = normalizeDate(range.end);
+      return isWithinInterval(today, { start, end });
+    });
   };
-
   return (
     <div className="max-w-7xl mx-auto">
       <Card className="mb-6">
@@ -183,6 +351,35 @@ export function TripPlanner() {
               <CardDescription>
                 Plan your trip with friends and family
               </CardDescription>
+            </div>
+            <div>
+              <Label htmlFor="departure">Departure Airport (IATA)</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="departure"
+                  maxLength={3}
+                  className="w-24 uppercase"
+                  placeholder="LGW"
+                  value={inputValue}
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    setInputValue(value);
+                  }}
+                />
+                <Button
+                  onClick={() => {
+                    setDepartureAirport(inputValue);
+                    console.log("Departure airport set to:", inputValue);
+                  }}
+                >
+                  OK
+                </Button>
+              </div>
+            </div>
+            <div className="mt-4">
+              <Button variant="secondary" onClick={handleSave}>
+                Save This Trip
+              </Button>
             </div>
             <div className="flex flex-col sm:flex-row gap-4">
               <div>
@@ -226,7 +423,7 @@ export function TripPlanner() {
               </CardDescription>
               <DateRangePicker
                 dateRange={dateRange}
-                onDateRangeChange={setDateRange}
+                onDateRangeChange={handleDateRangeChange}
               />
             </CardHeader>
             <CardContent>
@@ -278,7 +475,7 @@ export function TripPlanner() {
 
               <Calendar
                 mode="single"
-                onSelect={handleDateClick}
+                onSelect={(date) => date && handleDateClick(date)}
                 disabled={(date) =>
                   date < dateRange.from || date > dateRange.to
                 }
@@ -335,15 +532,7 @@ export function TripPlanner() {
                                   : "outline"
                               }
                               size="sm"
-                              onClick={async () => {
-                                setSelectedRangeIndex(index);
-                                try {
-                                  const result = await healthCheck();
-                                  console.log("API status:", result.status);
-                                } catch (err) {
-                                  console.error("API call failed:", err);
-                                }
-                              }}
+                              onClick={() => handleSelect(index)}
                             >
                               <Check className="h-4 w-4 mr-1" />
                               {selectedRangeIndex === index
@@ -383,6 +572,153 @@ export function TripPlanner() {
           </Tabs>
         </div>
       </div>
+      {aiResponse && aiResponse.cities && aiResponse.cities.length > 0 ? (
+        <div className="mt-4 p-4 bg-gray-100 border rounded-md">
+          <h2 className="text-xl font-semibold mb-3">Suggested Cities</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
+            {aiResponse.cities.map((cityData: CityData, index: number) => (
+              <div
+                key={index}
+                className="p-4 border rounded-lg shadow-sm bg-white hover:shadow-md transition"
+              >
+                <h3 className="text-lg font-semibold capitalize">
+                  {cityData.city_name}
+                </h3>
+                <div className="mt-2">
+                  <p className="text-gray-500">
+                    Airport:{" "}
+                    <span className="font-mono">{cityData.city_iata}</span>
+                  </p>
+
+                  {/* Flight Information */}
+                  {cityData.flight_info ? (
+                    <div className="mt-3 pt-2 border-t">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-medium">Total Price</h4>
+                        <span className="text-lg font-bold">
+                          £
+                          {(
+                            Number(cityData.flight_info?.price || 0) +
+                            Number(cityData.return_flight_info?.price || 0)
+                          ).toFixed(2)}
+                        </span>
+                      </div>
+
+                      {/* Outbound Flight */}
+                      <div className="mt-3 p-2 bg-gray-50 rounded-md">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            {cityData.flight_info?.airline_logo && (
+                              <img
+                                src={cityData.flight_info.airline_logo}
+                                alt={cityData.flight_info?.airline}
+                                className="h-6 w-6 object-contain"
+                              />
+                            )}
+                            <span className="font-medium">Outbound</span>
+                          </div>
+                          <span className="font-semibold">
+                            £{cityData.flight_info?.price}
+                          </span>
+                        </div>
+                        <div className="text-sm mt-1">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">
+                              Flight:{" "}
+                              <span className="font-mono">
+                                {cityData.flight_info?.flight_number || "N/A"}
+                              </span>
+                            </span>
+                            <span className="text-gray-600">
+                              {cityData.flight_info?.airline}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-gray-600 mt-1">
+                            <span>
+                              {cityData.flight_info?.departure?.time} →{" "}
+                              {cityData.flight_info?.arrival?.time}
+                            </span>
+                            <span>
+                              {cityData.flight_info?.duration_formatted}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Return Flight */}
+                      {cityData.return_flight_info ? (
+                        <div className="mt-2 p-2 bg-gray-50 rounded-md">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              {cityData.return_flight_info?.airline_logo && (
+                                <img
+                                  src={cityData.return_flight_info.airline_logo}
+                                  alt={cityData.return_flight_info?.airline}
+                                  className="h-6 w-6 object-contain"
+                                />
+                              )}
+                              <span className="font-medium">Return</span>
+                            </div>
+                            <span className="font-semibold">
+                              £{cityData.return_flight_info?.price}
+                            </span>
+                          </div>
+                          <div className="text-sm mt-1">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">
+                                Flight:{" "}
+                                <span className="font-mono">
+                                  {cityData.return_flight_info?.flight_number ||
+                                    "N/A"}
+                                </span>
+                              </span>
+                              <span className="text-gray-600">
+                                {cityData.return_flight_info?.airline}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-gray-600 mt-1">
+                              <span>
+                                {cityData.return_flight_info?.departure?.time} →{" "}
+                                {cityData.return_flight_info?.arrival?.time}
+                              </span>
+                              <span>
+                                {
+                                  cityData.return_flight_info
+                                    ?.duration_formatted
+                                }
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-2 p-2 bg-amber-50 rounded-md">
+                          <div className="text-amber-700 text-sm">
+                            Return flight information not available
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-3 p-3 bg-amber-50 text-amber-700 rounded-md text-sm">
+                      No flights available for this destination
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : aiResponse ? (
+        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+          <h2 className="text-xl font-semibold mb-2 text-yellow-800">
+            Loading Results
+          </h2>
+          <p className="text-yellow-700">
+            We&apos;re finding flight options for your selected dates. This may
+            take a moment...
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
