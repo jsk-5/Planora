@@ -169,6 +169,65 @@ export function TripPlanner() {
     })();
   }, [shareId, initialized]);
 
+  useEffect(() => {
+    // Only set up realtime subscription if we have a shareId
+    if (!shareId) return;
+
+    console.log("Setting up realtime subscription for trip:", shareId);
+    
+    // Create a subscription channel
+    const channel = supabase
+      .channel(`public:trips:share_id=eq.${shareId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'trips',
+          filter: `share_id=eq.${shareId}`
+        },
+        (payload) => {
+          console.log('Real-time update received:', payload);
+          
+          // Extract the updated payload data
+          const updatedData = payload.new.payload;
+          
+          if (!updatedData) return;
+          
+          // Parse ISO strings back into Date objects
+          updatedData.dateRange.from = new Date(updatedData.dateRange.from);
+          updatedData.dateRange.to = new Date(updatedData.dateRange.to);
+          
+          // Process people data to convert string dates to Date objects
+          const updatedPeople = updatedData.people.map((person: any) => ({
+            ...person,
+            unavailableDates: person.unavailableDates.map(
+              (s: string) => new Date(s)
+            ),
+          }));
+          
+          console.log("Updating local state with new data:", updatedData);
+          
+          // Update all the relevant state
+          if (updatedData.tripName) setTripName(updatedData.tripName);
+          setDateRange(updatedData.dateRange);
+          setTripDuration(updatedData.tripDuration);
+          setTripCost(updatedData.tripCost);
+          setInputValue(updatedData.departureAirport);
+          setDepartureAirport(updatedData.departureAirport);
+          setPeople(updatedPeople);
+          setPreferences(updatedData.preferences);
+        }
+      )
+      .subscribe();
+    
+    // Clean up the subscription when the component unmounts
+    return () => {
+      console.log("Cleaning up realtime subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [shareId]); // Only re-run if shareId changes
+
   async function handleSave() {
     if (!session) {
       alert("You must be signed in to save a trip.");
@@ -178,8 +237,8 @@ export function TripPlanner() {
     const userId = session.user?.id;
     const tripShareId = shareId || nanoid(8);
 
-
     const payload = {
+      tripName,
       dateRange,
       tripDuration,
       tripCost,
@@ -204,9 +263,17 @@ export function TripPlanner() {
     }
 
     const url = `${window.location.origin}/trip-planner?share=${tripShareId}`;
-    navigator.clipboard.writeText(url);
-    alert("Shareable link copied!");
-    window.location.href = url;
+    
+    // Only redirect if this is a new trip (not editing an existing one)
+    if (!shareId) {
+      navigator.clipboard.writeText(url);
+      alert("Shareable link copied!");
+      window.location.href = url;
+    } else {
+      // For existing trips, just show a notification that changes were saved
+      navigator.clipboard.writeText(url);
+      alert("Trip updated successfully!");
+    }
   }
 
   const handleRemovePerson = (id: string) => {
