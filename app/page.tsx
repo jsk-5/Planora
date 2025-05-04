@@ -1,5 +1,5 @@
 import { Navbar } from "@/components/navbar";
-import { TripPlanner } from "@/components/trip-planner";
+import { TripPlannerWrapper } from "@/components/trip-planner";
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 
@@ -14,7 +14,7 @@ export default async function Home() {
     <>
       <Navbar />
       <main className="min-h-screen p-4 md:p-8">
-        <TripPlanner />
+        <TripPlannerWrapper />
       </main>
     </>
   );
