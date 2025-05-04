@@ -22,9 +22,47 @@ interface SearchParams {
   costPerPerson: number;
   startDate: string;
   endDate: string;
+  departureAirport?: string;
 }
 
-export const searchCities = async (params: SearchParams) => {
+// Define types for flight data
+interface FlightInfo {
+  type: string;
+  airline: string;
+  airline_logo?: string;
+  price: number;
+  departure: {
+    airport: string;
+    time: string;
+    iata_code: string;
+  };
+  arrival: {
+    airport: string;
+    time: string;
+    iata_code: string;
+  };
+  duration_minutes: number;
+  duration_formatted: string;
+  flight_number: string;
+  aircraft: string;
+  departure_token: string;
+  carbon_emissions_kg: number;
+}
+
+interface CityData {
+  city_name: string;
+  city_iata: string;
+  flight_info: FlightInfo | null;
+  return_flight_info: FlightInfo | null;
+}
+
+interface ApiResponse {
+  cities: CityData[];
+}
+
+export const searchCities = async (
+  params: SearchParams
+): Promise<ApiResponse> => {
   try {
     const message = encodeURIComponent(JSON.stringify(params));
     const response = await api.get(`/search?message=${message}`);
@@ -35,4 +73,5 @@ export const searchCities = async (params: SearchParams) => {
     throw error;
   }
 };
+
 export default api;
