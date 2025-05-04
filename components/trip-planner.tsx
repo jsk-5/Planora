@@ -108,11 +108,6 @@ export function TripPlanner() {
     to: addDays(new Date(), 60),
   });
   const [people, setPeople] = useState<Person[]>([
-    {
-      id: "1",
-      name: "You",
-      unavailableDates: [],
-    },
   ]);
   const [selectedPerson, setSelectedPerson] = useState<string>("1");
   const [preferences, setPreferences] = useState<TripPreference[]>([
@@ -174,9 +169,9 @@ export function TripPlanner() {
     })();
   }, [shareId, initialized]);
 
-  async function handleShare() {
+  async function handleSave() {
     if (!session) {
-      alert("You must be signed in to share a trip.");
+      alert("You must be signed in to save a trip.");
       return;
     }
 
@@ -384,8 +379,8 @@ export function TripPlanner() {
               </div>
             </div>
             <div className="mt-4">
-              <Button variant="secondary" onClick={handleShare}>
-                Share This Trip
+              <Button variant="secondary" onClick={handleSave}>
+                Save This Trip
               </Button>
             </div>
             <div className="flex flex-col sm:flex-row gap-4">
