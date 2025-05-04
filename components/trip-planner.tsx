@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   format,
   addDays,
@@ -31,7 +31,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddPersonForm } from "./add-person-form";
 import { TripPreferences } from "./trip-preferences";
 import { DateRangePicker } from "./date-range-picker";
-import { searchCities } from "@/lib/api";
+import { supabase } from "@/lib/supabaseClient";
+import { nanoid } from "nanoid";
+import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { type DateRange } from "react-day-picker";
 
 // Define types for flight data
@@ -68,7 +71,6 @@ interface CityData {
 interface ApiResponse {
   cities: CityData[];
 }
-
 export type Person = {
   id: string;
   name: string;
@@ -83,8 +85,16 @@ export type TripPreference = {
 
 export function TripPlanner() {
   const [tripName, setTripName] = useState("Summer Vacation");
-  const [inputValue, setInputValue] = useState("LGW");
-  const [departureAirport, setDepartureAirport] = useState("LGW");
+
+  const [inputValue, setInputValue] = useState('LGW');
+  const [departureAirport, setDepartureAirport] = useState('LGW');
+  
+  // Load trip from share link
+  const params = useSearchParams();
+  const { data: session } = useSession();
+  const shareId = params.get("share");
+  const [initialized, setInitialized] = useState(false);
+  //
   const [selectedRangeIndex, setSelectedRangeIndex] = useState<number | null>(
     null
   );
@@ -124,6 +134,78 @@ export function TripPlanner() {
     setPeople([...people, newPerson]);
     setSelectedPerson(newPerson.id);
   };
+
+  useEffect(() => {
+    if (!shareId || initialized) return;
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("trips")
+        .select("payload")
+        .eq("share_id", shareId)
+        .single();
+
+      if (error || !data) {
+        console.warn("No shared trip found:", error);
+      } else {
+        console.log("Shared trip found:", data);
+        const p = data.payload;
+        // parse ISO strings back into Date
+        p.dateRange.from = new Date(p.dateRange.from);
+        p.dateRange.to   = new Date(p.dateRange.to);
+        p.people = p.people.map((person: any) => ({
+          ...person,
+          unavailableDates: person.unavailableDates.map((s: string) => new Date(s)),
+        }));
+
+        // hydrate state
+        setDateRange(p.dateRange);
+        setTripDuration(p.tripDuration);
+        setTripCost(p.tripCost);
+        setInputValue(p.departureAirport);
+        setDepartureAirport(p.departureAirport);
+        setPeople(p.people);
+        setPreferences(p.preferences);
+      }
+
+      setInitialized(true);
+    })();
+  }, [shareId, initialized]);
+
+  async function handleShare() {
+    if (!session) {
+      alert("You must be signed in to share a trip.");
+      return;
+    }
+  
+    const userId = session.user?.id;
+    const shareId = nanoid(8);
+  
+    const payload = {
+      dateRange,
+      tripDuration,
+      tripCost,
+      departureAirport: inputValue,
+      people: people.map(p => ({
+        ...p,
+        unavailableDates: p.unavailableDates.map(d => d.toISOString()),
+      })),
+      preferences,
+    };
+  
+    const { error } = await supabase
+      .from("trips")
+      .upsert({ share_id: shareId, user_id: userId, payload }, { onConflict: "share_id" });
+  
+    if (error) {
+      console.error("Error saving trip:", error);
+      return;
+    }
+  
+    const url = `${window.location.origin}/trip-planner?share=${shareId}`;
+    navigator.clipboard.writeText(url);
+    alert("Shareable link copied!");
+  }
 
   const handleRemovePerson = (id: string) => {
     setPeople(people.filter((person) => person.id !== id));
@@ -293,6 +375,11 @@ export function TripPlanner() {
                   OK
                 </Button>
               </div>
+            </div>
+            <div className="mt-4">
+              <Button variant="secondary" onClick={handleShare}>
+                Share This Trip
+              </Button>
             </div>
             <div className="flex flex-col sm:flex-row gap-4">
               <div>
