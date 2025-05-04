@@ -181,7 +181,8 @@ export function TripPlanner() {
     }
 
     const userId = session.user?.id;
-    const shareId = nanoid(8);
+    const tripShareId = shareId || nanoid(8);
+
 
     const payload = {
       dateRange,
@@ -198,7 +199,7 @@ export function TripPlanner() {
     const { error } = await supabase
       .from("trips")
       .upsert(
-        { share_id: shareId, user_id: userId, payload },
+        { share_id: tripShareId, user_id: userId, payload },
         { onConflict: "share_id" }
       );
 
@@ -207,9 +208,10 @@ export function TripPlanner() {
       return;
     }
 
-    const url = `${window.location.origin}/trip-planner?share=${shareId}`;
+    const url = `${window.location.origin}/trip-planner?share=${tripShareId}`;
     navigator.clipboard.writeText(url);
     alert("Shareable link copied!");
+    window.location.href = url;
   }
 
   const handleRemovePerson = (id: string) => {
