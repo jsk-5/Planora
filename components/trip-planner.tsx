@@ -225,6 +225,14 @@ export function TripPlanner() {
   const handleDateRangeChange = (range: DateRange) => {
     if (range.from && range.to) {
       setDateRange({ from: range.from, to: range.to });
+    } else if (range.from) {
+      // If only the start date is selected, update just the from date
+      // while preserving the existing to date
+      setDateRange((prev) => ({ ...prev, from: range.from }));
+    } else if (range.to) {
+      // If only the end date is selected, update just the to date
+      // while preserving the existing from date
+      setDateRange((prev) => ({ ...prev, to: range.to }));
     }
   };
 
@@ -293,7 +301,7 @@ export function TripPlanner() {
   };
 
   function findAvailableDates() {
-    if (!dateRange.from || !dateRange.to) return [];
+    if (!dateRange || !dateRange.from || !dateRange.to) return [];
 
     // total full days inclusive of both endpoints:
     const totalDays = differenceInDays(dateRange.to, dateRange.from) + 1;
@@ -333,12 +341,14 @@ export function TripPlanner() {
   const availableDateRanges = findAvailableDates();
 
   const isDateInAvailableRange = (date: Date) => {
-    const today = normalizeDate(date);
-    return availableDateRanges.some((range) => {
-      const start = normalizeDate(range.start);
-      const end = normalizeDate(range.end);
-      return isWithinInterval(today, { start, end });
-    });
+    if (!availableDateRanges || availableDateRanges.length === 0) return false;
+    return availableDateRanges.some(
+      (range) =>
+        range &&
+        range.start &&
+        range.end &&
+        isWithinInterval(date, { start: range.start, end: range.end })
+    );
   };
   return (
     <div className="max-w-7xl mx-auto">
@@ -428,7 +438,7 @@ export function TripPlanner() {
               </CardDescription>
               <DateRangePicker
                 dateRange={dateRange}
-                onDateRangeChange={handleDateRangeChange}
+                onDateRangeChange={setDateRange}
               />
             </CardHeader>
             <CardContent>
@@ -481,9 +491,11 @@ export function TripPlanner() {
               <Calendar
                 mode="single"
                 onSelect={(date) => date && handleDateClick(date)}
-                disabled={(date) =>
-                  date < dateRange.from || date > dateRange.to
-                }
+                disabled={(date) => {
+                  if (!dateRange || !dateRange.from || !dateRange.to)
+                    return true;
+                  return date < dateRange.from || date > dateRange.to;
+                }}
                 modifiers={{
                   unavailable: (date) => isDateUnavailable(date),
                   available: (date) => isDateInAvailableRange(date),

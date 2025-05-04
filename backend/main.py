@@ -6,7 +6,7 @@ import serpapi
 import os
 import json
 import asyncio
-
+from dummy_api_response import test_response
 
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
@@ -97,8 +97,10 @@ async def get_flights(**kwargs):
         raise ValueError("Either provide departure_token OR (departure_id, arrival_id, outbound_date, return_date)")
     
     client = serpapi.Client(api_key=os.getenv("SERPAPI_API_KEY"))
-    results = client.search(params)
-    return results
+    # results = client.search(params)
+    
+    
+    return test_response
 
 async def fetch_city_flights(departure_airport, city_iata, outbound_date, return_date):
     """
