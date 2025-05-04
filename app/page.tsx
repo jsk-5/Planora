@@ -1,5 +1,5 @@
-import { Navbar } from "@/components/navbar";
-import { TripPlanner } from "@/components/trip-planner";
+import { Navbar } from "../components/navbar";
+import { TripPlanner } from "../components/trip-planner";
 import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 

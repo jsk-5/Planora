@@ -1,5 +1,5 @@
 import type React from "react";
-import { AuthProvider } from "@/components/providers/session-provider";
+import { AuthProvider } from "../components/providers/session-provider";
 import "./globals.css";
 import type { Metadata } from "next";
 
