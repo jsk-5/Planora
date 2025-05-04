@@ -1,7 +1,44 @@
 import axios from "axios";
 
+// TypeScript declarations for global variables
+declare global {
+  namespace NodeJS {
+    interface ProcessEnv {
+      NEXT_PUBLIC_API_URL?: string;
+    }
+  }
+}
+
+// Determine the base URL with fallbacks
+const getBaseUrl = () => {
+  // First priority: Environment variable (set in Vercel)
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  
+  // Second priority: Check browser location for development and Vercel environments
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    
+    // Local development
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return "http://localhost:8000/api";
+    }
+    
+    // Vercel deployments (main, preview, and branch deployments)
+    if (hostname === "planora.vercel.app" || 
+        hostname.includes("planora-git-") || 
+        hostname.includes("planora-")) {
+      return "https://planora-backend.vercel.app/api";
+    }
+  }
+  
+  // Fallback for production
+  return "https://planora-backend.vercel.app/api";
+};
+
 const api = axios.create({
-  baseURL: "http://localhost:8000/api",
+  baseURL: getBaseUrl(),
   headers: {
     "Content-Type": "application/json",
   },
